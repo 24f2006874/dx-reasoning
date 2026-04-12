@@ -8,11 +8,17 @@ from typing import List
 
 from openai import AsyncOpenAI
 
-# Allow running `python inference.py` from this repo root while using package-prefixed imports.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Support both package-style and flat-repo execution contexts.
+REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT.parent))
 
-from dx_reasoning.client import DxReasoningEnv
-from dx_reasoning.models import ActionType, DxAction
+try:
+    from dx_reasoning.client import DxReasoningEnv
+    from dx_reasoning.models import ActionType, DxAction
+except ModuleNotFoundError:
+    from client import DxReasoningEnv
+    from models import ActionType, DxAction
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/hf-inference/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
@@ -75,33 +81,40 @@ async def main() -> None:
                     "Return JSON only with keys action_type and content."
                 )
 
-                if llm:
-                    response = await llm.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.0,
-                        max_tokens=100,
+                try:
+                    if llm:
+                        response = await llm.chat.completions.create(
+                            model=MODEL_NAME,
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.0,
+                            max_tokens=100,
+                        )
+                        raw_content = response.choices[0].message.content or ""
+                        action = _safe_action(raw_content)
+                    else:
+                        action = _fallback_action(step)
+
+                    step_result = await env.step(action)
+                    obs = step_result.observation
+                    done = bool(step_result.done)
+                    step_reward = float(step_result.reward or 0.0)
+                    rewards.append(step_reward)
+
+                    print(
+                        f"[STEP] step={step} action={action.action_type.value} "
+                        f"reward={step_reward:.2f} done={str(done).lower()} error=null"
                     )
-                    raw_content = response.choices[0].message.content or ""
-                    action = _safe_action(raw_content)
-                else:
-                    action = _fallback_action(step)
-                step_result = await env.step(action)
-
-                obs = step_result.observation
-                done = bool(step_result.done)
-                step_reward = float(step_result.reward or 0.0)
-                rewards.append(step_reward)
-
-                print(
-                    f"[STEP] step={step} action={action.action_type.value} "
-                    f"reward={step_reward:.2f} done={str(done).lower()} error=null"
-                )
+                except Exception as exc:
+                    print(
+                        f"[STEP] step={step} action=error reward=0.00 "
+                        f"done=true error={str(exc)}"
+                    )
+                    done = True
 
             score = (sum(rewards) / len(rewards)) if rewards else 0.0
             success = str(score >= 0.5).lower()
             print(
-                f"[END] success={success} steps={step} score={score:.3f} rewards={_format_rewards(rewards)}"
+                f"[END] success={success} steps={step} score={score:.2f} rewards={_format_rewards(rewards)}"
             )
 
 

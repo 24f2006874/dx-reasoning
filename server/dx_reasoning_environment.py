@@ -87,7 +87,7 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
             },
         )
 
-    def step(self, action: DxAction) -> DxObservation:
+    def step(self, action: DxAction, timeout_s: Optional[float] = None, **kwargs) -> DxObservation:
         if not self._state:
             raise ValueError("Call reset first")
 
@@ -101,7 +101,46 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
             "evidence_bonus": 0.0,
             "premature_penalty": 0.0,
             "repeat_penalty": 0.0,
+            "efficiency_bonus": 0.0,
+            "final": 0.0,
         }
+
+        max_steps_by_task = {
+            "easy": 12,
+            "medium": 12,
+            "hard": 15,
+            "expert": 18,
+        }
+        max_steps = max_steps_by_task.get(self._state.task, 12)
+        if self._state.step_count >= max_steps:
+            done = True
+            notes = f"Episode reached max steps ({max_steps}) without final diagnosis"
+            reward = max(0.0, min(1.0, reward))
+            reward_breakdown["action"] = reward
+            reward_breakdown["final"] = reward
+            self._state.reward_breakdown = reward_breakdown
+            return DxObservation(
+                done=done,
+                reward=reward,
+                patient_context=self._generate_patient_context(),
+                clinical_notes=notes,
+                hints_remaining=self._get_hints_remaining(self._state.task),
+                test_results=self._test_results,
+                exam_findings=self._exam_findings,
+                history_details=self._history_revealed,
+                metadata={
+                    "disease_name": self._disease_template.display_name,
+                    "difficulty": self._state.task,
+                    "patient_age": self._patient_profile.age,
+                    "patient_gender": self._patient_profile.gender,
+                    "step_count": self._state.step_count,
+                    "diagnoses_attempted": self._diagnoses_attempted,
+                    "tests_ordered": self._state.tests_ordered,
+                    "reward_breakdown": reward_breakdown,
+                    "evidence_count": self._evidence_count(),
+                    "timeout_s": timeout_s,
+                },
+            )
 
         if action.action_type == ActionType.DIAGNOSE:
             # Handle diagnosis submission
@@ -153,8 +192,10 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
             # Efficiency bonus for later steps
             if self._state.step_count >= 7:
                 reward += 0.10
+                reward_breakdown["efficiency_bonus"] = 0.10
 
         reward = max(0.0, min(1.0, reward))
+        reward_breakdown["final"] = reward
         self._state.reward_breakdown = reward_breakdown
 
         return DxObservation(
@@ -176,6 +217,7 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
                 "tests_ordered": self._state.tests_ordered,
                 "reward_breakdown": reward_breakdown,
                 "evidence_count": self._evidence_count(),
+                "timeout_s": timeout_s,
             },
         )
 
