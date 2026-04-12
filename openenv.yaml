@@ -1,0 +1,28 @@
+spec_version: 1
+name: dx_reasoning
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+version: "1.0.0"
+description: Clinical Diagnostic Reasoning Environment for training agents to diagnose like doctors
+author: Team Axiom
+tags:
+  - medical
+  - diagnosis
+  - reasoning
+  - healthcare
+license: MIT
+python_version: "3.10"
+environment_class: server.dx_reasoning_environment.DxReasoningEnvironment
+observation_space:
+  type: object
+action_space:
+  type: object
+tasks:
+  - name: easy
+    description: Textbook presentations (strep throat, appendicitis, pneumonia, DKA)
+  - name: medium
+    description: Overlapping symptoms and differentials (atypical MI, PE, meningitis, ectopic pregnancy)
+  - name: hard
+    description: Complex multi-system cases (myasthenia gravis)

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-dx_reasoning"
+version = "0.1.0"
+description = "Dx Reasoning environment for OpenEnv"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core[core]>=0.2.2",
+    "openai>=1.3.0",
+    "pydantic>=2.0.0",
+    "uvicorn>=0.24.0",
+    "httpx>=0.25.0",
+    "fastapi>=0.104.0",
+]
+
+[project.scripts]
+server = "server.app:main"
