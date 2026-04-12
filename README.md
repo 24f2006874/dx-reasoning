@@ -263,6 +263,38 @@ python inference.py
 
 If `HF_TOKEN` is set, the script uses the configured LLM. If `HF_TOKEN` is missing, it runs a deterministic local fallback policy and still emits `[START]`, `[STEP]`, and `[END]` logs with rewards.
 
+### Submission Reliability Notes (Phase 2)
+
+The inference runner is hardened for both local and validator execution contexts:
+
+- `inference.py` supports both package-style imports (`dx_reasoning.*`) and flat-repo imports (`client`, `models`).
+- Per-step inference execution is wrapped in `try/except`, so unexpected runtime errors are emitted as a structured `[STEP]` line instead of crashing silently.
+- `[END]` output uses `score={score:.2f}` to preserve strict formatting compatibility.
+- Environment steps are bounded with max-step safeguards in `server/dx_reasoning_environment.py` to prevent unbounded episodes.
+
+Expected log shape:
+
+```text
+[START] task=easy env=dx_reasoning model=...
+[STEP] step=1 action=request_history reward=0.30 done=false error=null
+[END] success=true steps=5 score=0.62 rewards=[...]
+```
+
+### Final Pre-Submission Checks
+
+Run these checks before pushing to Hugging Face Space:
+
+```bash
+# 1) OpenEnv manifest and runtime validation
+openenv validate
+
+# 2) Full tests
+python -m unittest tests.test_dx_environment -v
+
+# 3) Inference startup sanity (import path safety)
+python -c "import inference; print('inference import ok')"
+```
+
 ### Concurrent WebSocket Sessions
 
 The server supports multiple concurrent WebSocket connections. To enable this,

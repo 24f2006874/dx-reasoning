@@ -5,6 +5,7 @@ Contains disease templates, symptom profiles, and patient generation logic.
 """
 
 import random
+import re
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -829,14 +830,26 @@ class MedicalKnowledgeBase:
     
     def _get_age_range_from_epidemiology(self, age_desc: str) -> Tuple[int, int]:
         """Parse age description to get age range."""
-        if "children" in age_desc.lower() or "young" in age_desc.lower():
+        normalized = age_desc.lower().strip()
+
+        # Prefer explicit numeric ranges such as "5-15 years".
+        match = re.search(r"(\d{1,2})\s*(?:-|to)\s*(\d{1,2})", normalized)
+        if match:
+            low = int(match.group(1))
+            high = int(match.group(2))
+            if low <= high:
+                return (max(0, low), min(100, high))
+
+        if "children" in normalized or "pediatric" in normalized:
             return (5, 18)
-        elif "elderly" in age_desc.lower() or "older" in age_desc.lower():
+        elif "adolescent" in normalized or "teen" in normalized:
+            return (12, 19)
+        elif "young adult" in normalized:
+            return (18, 35)
+        elif "adult" in normalized:
+            return (18, 65)
+        elif "elderly" in normalized or "older" in normalized or "geriatric" in normalized:
             return (65, 85)
-        elif "20-40" in age_desc or "30-50" in age_desc:
-            return (20, 50)
-        elif "10-30" in age_desc:
-            return (10, 30)
         else:
             return (18, 70)
     

@@ -117,6 +117,7 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
             notes = f"Episode reached max steps ({max_steps}) without final diagnosis"
             reward = max(0.0, min(1.0, reward))
             reward_breakdown["action"] = reward
+            reward_breakdown["action_quality"] = reward
             reward_breakdown["final"] = reward
             self._state.reward_breakdown = reward_breakdown
             return DxObservation(
@@ -172,6 +173,7 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
             done = True
             notes += f" (step {self._state.step_count})"
             reward_breakdown["action"] = reward
+            reward_breakdown["action_quality"] = reward
         else:
             # Handle information gathering actions
             response = self._handle_information_action(action)
@@ -179,6 +181,7 @@ class DxReasoningEnvironment(Environment):  # MUST inherit from Environment
             info_grade = DxGrader.grade_information_action(action.action_type.value)
             reward = max(float(response.get("reward", 0.0)), info_grade.score)
             reward_breakdown["action"] = reward
+            reward_breakdown["action_quality"] = reward
 
             if action.action_type == ActionType.ORDER_TEST and action.content:
                 requested_test = action.content.strip().lower()
